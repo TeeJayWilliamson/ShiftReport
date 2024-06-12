@@ -209,13 +209,13 @@ function generate(notes, date) {
 
                 console.log("Document initialized successfully.");
 
-                // Render the document with the provided notes and date
+                // Parse the date string to ensure consistency across devices
                 const formattedDate = new Date(date);
-                const options = { month: 'long', day: 'numeric', year: 'numeric' };
-                const formattedDateString = formattedDate.toLocaleDateString('en-US', options);
-                
+                const isoDateString = formattedDate.toISOString(); // Format date as ISO 8601
+
+                // Render the document with the provided notes and formatted date
                 doc.render({
-                    shiftDate: "Shift Summary - " + formattedDateString, 
+                    shiftDate: "Shift Summary - " + isoDateString, // Use ISO 8601 formatted date
                     notes: notes.join("\n\n")
                 });
 
@@ -231,7 +231,7 @@ function generate(notes, date) {
                 console.log("Document blob generated successfully.");
 
                 // Save the document with the formatted date in the file name
-                const formattedFileName = formattedDateString.replace(/[/\\?%*:|"<>]/g, '-'); // replace special characters in date for file name
+                const formattedFileName = formattedDate.toLocaleDateString('en-US').replace(/[/\\?%*:|"<>]/g, '-'); // Format date for file name
                 const fileName = `Shift Summary ${formattedFileName}.docx`;
 
                 // Create a temporary anchor element for downloading
@@ -241,7 +241,7 @@ function generate(notes, date) {
 
                 // Trigger download
                 downloadLink.click();
-                
+
                 console.log("Download triggered successfully.");
             } catch (error) {
                 console.error('Error during document generation:', error);
@@ -249,6 +249,7 @@ function generate(notes, date) {
         }
     );
 }
+
 
 
     // Function to load the file from the given URL
