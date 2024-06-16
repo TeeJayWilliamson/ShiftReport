@@ -4,7 +4,118 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shift Summary</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            text-align: center;
+            position: relative;
+        }
+
+        .notes-area, .days-area {
+            background-color: #ffffff;
+            border: 4px solid #f44336;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #f44336;
+        }
+
+        textarea {
+            width: calc(100% - 20px);
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #addNoteBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .deleteDayBtn, .deleteNoteBtn {
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            position: absolute;
+            top: 0;
+            right: -15px;
+            margin-top: 5px; /* Adjust vertical position */
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .note:hover .deleteNoteBtn,
+        .dayContainer:hover .deleteDayBtn {
+            opacity: 1;
+        }
+
+        .note, .dayContainer {
+            background-color: #ffffff;
+            border-left: 5px solid #f44336;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            position: relative;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .dayContainer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #daysList .dayContainer button {
+            flex: 1;
+            margin: 0 5px;
+            color: black;
+            background-color: white;
+        }
+
+        #daysList .deleteDayBtn,
+        .note .deleteNoteBtn {
+            width: 30px; /* Set the width and height to match */
+            height: 30px;
+            line-height: 30px;
+            top: 0;
+            right: 0;
+        }
+    </style>
 </head>
 <body>
     <div id="homepage" class="container">
@@ -14,12 +125,39 @@
     </div>
 
     <div id="notepad" class="container" style="display: none;">
-        <h1>Shift Summary - <span id="currentDate"></span></h1>
-        <textarea id="noteInput" placeholder="Type your note here..."></textarea>
-        <button id="addNoteBtn">Add Note</button>
-        <button id="endShiftBtn">End Shift</button>
-        <button id="backBtn">Back to Homepage</button>
-        <div id="notesContainer"></div>
+        <div id="fixedHeader">
+            <h1>Shift Summary - <span id="currentDate"></span></h1>
+            <div id="dayInfo">
+                <div class="input-group">
+                    <label for="nameInput">Name:</label>
+                    <input type="text" id="nameInput" placeholder="Enter your name">
+                </div>
+                <div class="input-group">
+                    <label for="zoneInput">Zone:</label>
+                    <input type="text" id="zoneInput" placeholder="Enter your zone">
+                </div>
+                <div class="input-group">
+                    <label for="peakPostInput">Peak Post:</label>
+                    <input type="text" id="peakPostInput" placeholder="Enter your peak post">
+                </div>
+                <div class="input-group">
+                    <p>Start Time:</p>
+                    <input type="radio" id="radio5am" name="startTime" value="5am">
+                    <label for="radio5am">5am</label>
+                    <input type="radio" id="radio6am" name="startTime" value="6am">
+                    <label for="radio6am">6am</label>
+                    <input type="radio" id="radio3pm" name="startTime" value="3pm">
+                    <label for="radio3pm">3pm</label>
+                    <input type="radio" id="radio4pm" name="startTime" value="4pm">
+                    <label for="radio4pm">4pm</label>
+                </div>
+            </div>
+            <textarea id="noteInput" placeholder="Type your note here..."></textarea>
+            <button id="addNoteBtn">Add Note</button>
+            <button id="endShiftBtn">End Shift</button>
+            <button id="backBtn">Back to Homepage</button>
+        </div>
+        <div id="notesContainer" class="scrollable-content"></div>
     </div>
 
     <!-- Include docxtemplater and its dependencies -->
@@ -49,18 +187,21 @@
             const endShiftBtn = document.getElementById('endShiftBtn');
             const backBtn = document.getElementById('backBtn');
             const newDayBtn = document.getElementById('newDayBtn');
+            const nameInput = document.getElementById('nameInput');
+            const zoneInput = document.getElementById('zoneInput');
+            const peakPostInput = document.getElementById('peakPostInput');
 
             let currentDayKey = null;
 
             function loadDays() {
                 daysList.innerHTML = '';
-                const days = Object.keys(localStorage).sort();
+                const days = Object.keys(localStorage).filter(key => !key.endsWith('_info')).sort();
                 days.forEach(day => {
                     const dayContainer = document.createElement('div');
                     dayContainer.classList.add('dayContainer');
 
                     const dayButton = document.createElement('button');
-                    dayButton.innerText = day;
+                    dayButton.innerText = formatDate(day);
                     dayButton.addEventListener('click', () => {
                         openDay(day);
                     });
@@ -68,7 +209,8 @@
                     const deleteDayBtn = document.createElement('button');
                     deleteDayBtn.classList.add('deleteDayBtn');
                     deleteDayBtn.innerHTML = 'x';
-                    deleteDayBtn.addEventListener('click', () => {
+                    deleteDayBtn.addEventListener('click', (event) => {
+                        event.stopPropagation();
                         deleteDay(day);
                     });
 
@@ -81,7 +223,8 @@
 
             function openDay(day) {
                 currentDayKey = day;
-                currentDateElement.innerText = day;
+                const formattedDate = formatDate(day);
+                currentDateElement.innerText = formattedDate;
                 homepage.style.display = 'none';
                 notepad.style.display = 'block';
                 notesContainer.innerHTML = '';
@@ -90,183 +233,183 @@
                     const noteElement = createNoteElement(note);
                     notesContainer.appendChild(noteElement);
                 });
-            }
 
-            function createNoteElement(note) {
-    const timestamp = new Date(note.timestamp);
-    const time = timestamp.toLocaleTimeString(); // Get only the time part
+                const dayInfo = JSON.parse(localStorage.getItem(`${currentDayKey}_info`)) || {};
+                nameInput.value = dayInfo.name || '';
+                zoneInput.value = dayInfo.zone || '';
+                peakPostInput.value = dayInfo.peakPost || '';
+                if (dayInfo.startTime) {
+                    document.querySelector(`input[name="startTime"][value="${dayInfo.startTime}"]`).checked = true;
+                } else {
+                    document.querySelector('input[name="startTime"]:checked').checked = false;
+                }
 
-    const noteElement = document.createElement('div');
-    noteElement.classList.add('note');
-    noteElement.dataset.timestamp = timestamp.getTime(); // Store timestamp as data attribute
-    noteElement.innerHTML = `<strong>${time}</strong> ${note.text}`; // Removed colon after time
-    
-    const deleteNoteBtn = document.createElement('button');
-    deleteNoteBtn.classList.add('deleteNoteBtn');
-    deleteNoteBtn.innerHTML = 'x';
-    deleteNoteBtn.addEventListener('click', (event) => {
-        deleteNote(event);
-    });
-
-    noteElement.appendChild(deleteNoteBtn);
-    
-    return noteElement;
-}
-            function addNote() {
-                const noteText = noteInput.value;
-                if (noteText) {
-                    const timestamp = new Date().toLocaleString();
-                    const note = { timestamp, text: noteText };
-                    const noteElement = createNoteElement(note);
-                    notesContainer.appendChild(noteElement);
-                    noteInput.value = '';
-
-                    const notes = JSON.parse(localStorage.getItem(currentDayKey)) || [];
-                    notes.push(note);
+                // Add initial note if not present
+                if (!notes.some(note => note.initial)) {
+                    const startTime = document.querySelector('input[name="startTime"]:checked')?.value || 'Undefined';
+                    const zone = zoneInput.value || 'Undefined';
+                    const peakPost = peakPostInput.value ? `Peak post is ${peakPostInput.value}.` : '';
+                    const initialNote = {
+                        timestamp: Date.now(),
+                        text: `${startTime} - Booked on for ${zone}. ${peakPost}`,
+                        initial: true
+                    };
+                    notes.push(initialNote);
                     localStorage.setItem(currentDayKey, JSON.stringify(notes));
+                    notesContainer.appendChild(createNoteElement(initialNote));
                 }
             }
 
-            function deleteNote() {
-                const noteToDelete = event.target.parentElement;
-                noteToDelete.remove();
-
-                const notes = JSON.parse(localStorage.getItem(currentDayKey)) || [];
-                const updatedNotes = notes.filter(note => note.timestamp !== noteToDelete.querySelector('strong').innerText);
-                localStorage.setItem(currentDayKey, JSON.stringify(updatedNotes));
+            function addNote() {
+                const noteText = noteInput.value.trim();
+                if (noteText) {
+                    const note = {
+                        timestamp: Date.now(),
+                        text: noteText,
+                        initial: false
+                    };
+                    const notes = JSON.parse(localStorage.getItem(currentDayKey)) || [];
+                    notes.push(note);
+                    localStorage.setItem(currentDayKey, JSON.stringify(notes));
+                    notesContainer.appendChild(createNoteElement(note));
+                    noteInput.value = '';
+                }
             }
 
             function deleteDay(day) {
                 localStorage.removeItem(day);
+                localStorage.removeItem(`${day}_info`);
                 loadDays();
             }
 
+            function deleteNote(timestamp) {
+                const notes = JSON.parse(localStorage.getItem(currentDayKey)) || [];
+                const updatedNotes = notes.filter(note => note.timestamp !== timestamp);
+                localStorage.setItem(currentDayKey, JSON.stringify(updatedNotes));
+                openDay(currentDayKey);
+            }
+
+            function createNoteElement(note) {
+                const noteElement = document.createElement('div');
+                noteElement.classList.add('note');
+                noteElement.innerText = `${formatTime(new Date(note.timestamp))} - ${note.text}`;
+
+                const deleteNoteBtn = document.createElement('button');
+                deleteNoteBtn.classList.add('deleteNoteBtn');
+                deleteNoteBtn.innerHTML = 'x';
+                deleteNoteBtn.addEventListener('click', () => {
+                    deleteNote(note.timestamp);
+                });
+
+                noteElement.appendChild(deleteNoteBtn);
+
+                return noteElement;
+            }
+
             function endDay() {
-    console.log('End Shift button clicked');
-    const noteElements = document.querySelectorAll('.note');
-    const allNotes = [];
-    noteElements.forEach(noteElement => {
-        const timestamp = new Date(parseInt(noteElement.dataset.timestamp)).toLocaleTimeString(); // Retrieve timestamp from data attribute
-        const text = noteElement.querySelector('strong').nextSibling.textContent.trim(); // Get text after strong element
-        allNotes.push(`${timestamp} - ${text}`); // Adjusted to have one hyphen
-    });
+                const notes = JSON.parse(localStorage.getItem(currentDayKey)) || [];
+                const dayInfo = JSON.parse(localStorage.getItem(`${currentDayKey}_info`)) || {};
 
-    const currentDate = document.getElementById('currentDate').textContent;
+                const formattedDate = formatDate(currentDayKey);
+                const daySummary = {
+                    name: dayInfo.name || '',
+                    zone: dayInfo.zone || '',
+                    peakPost: dayInfo.peakPost || '',
+                    startTime: dayInfo.startTime || '',
+                    date: formattedDate,
+                    notes: notes.map(note => `${formatTime(new Date(note.timestamp))} - ${note.text}`).join('\n')
+                };
 
-    if (allNotes.length > 0) {
-        console.log('Notes found, attempting conversion to Word document...');
-        generate(allNotes, currentDate);
-    } else {
-        console.error('No notes to export');
-    }
-}
+                // Load the template and populate it
+                fetch('Shift_Summary_Template.docx')
+                    .then(response => response.arrayBuffer())
+                    .then(data => {
+                        const zip = new PizZip(data);
+                        const doc = new window.docxtemplater(zip, {
+                            paragraphLoop: true,
+                            linebreaks: true
+                        });
 
+                        // Set the template variables
+                        doc.setData(daySummary);
 
+                        try {
+                            doc.render();
+                        } catch (error) {
+                            console.error('Error rendering template', error);
+                        }
 
+                        const out = doc.getZip().generate({
+                            type: 'blob',
+                            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8'
+                        });
 
+                        saveAs(out, `${formattedDate}_Shift_Summary.docx`);
+
+                        localStorage.removeItem(currentDayKey);
+                        localStorage.removeItem(`${currentDayKey}_info`);
+                        loadDays();
+                        notepad.style.display = 'none';
+                        homepage.style.display = 'block';
+                    });
+            }
+
+            function backToHomepage() {
+                notepad.style.display = 'none';
+                homepage.style.display = 'block';
+            }
 
             function startNewDay() {
-                const today = new Date().toLocaleDateString();
-                if (!localStorage.getItem(today)) {
-                    localStorage.setItem(today, JSON.stringify([{ timestamp: new Date().toLocaleString(), text: 'Start of day' }]));
+                currentDayKey = new Date().toISOString().split('T')[0];
+                const existingNotes = localStorage.getItem(currentDayKey);
+                if (existingNotes) {
+                    if (!confirm('A shift summary already exists for today. Do you want to continue?')) {
+                        return;
+                    }
                 }
-                openDay(today);
+                localStorage.setItem(currentDayKey, '[]');
+                openDay(currentDayKey);
+            }
+
+            function saveDayInfo() {
+                const name = nameInput.value;
+                const zone = zoneInput.value;
+                const peakPost = peakPostInput.value;
+                const startTime = document.querySelector('input[name="startTime"]:checked')?.value;
+
+                const dayInfo = { name, zone, peakPost, startTime };
+                localStorage.setItem(`${currentDayKey}_info`, JSON.stringify(dayInfo));
+            }
+
+            function formatDate(dateStr) {
+                const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                return new Date(dateStr).toLocaleDateString('en-US', options);
+            }
+
+            function formatTime(date) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
             }
 
             addNoteBtn.addEventListener('click', addNote);
-            noteInput.addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-event.preventDefault(); // Prevents default behavior of adding a new line
-addNote();
-}
-});
+            endShiftBtn.addEventListener('click', endDay);
+            backBtn.addEventListener('click', backToHomepage);
+            newDayBtn.addEventListener('click', startNewDay);
+            nameInput.addEventListener('change', saveDayInfo);
+            zoneInput.addEventListener('change', saveDayInfo);
+            peakPostInput.addEventListener('change', saveDayInfo);
+            document.querySelectorAll('input[name="startTime"]').forEach(radio => {
+                radio.addEventListener('change', saveDayInfo);
+            });
 
-endShiftBtn.addEventListener('click', endDay);
-        backBtn.addEventListener('click', () => {
-            homepage.style.display = 'block';
-            notepad.style.display = 'none';
+            noteInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    addNote();
+                }
+            });
+
             loadDays();
         });
-        newDayBtn.addEventListener('click', startNewDay);
-
-        loadDays();
-    });
-
-    // Function to generate the document with the given notes and current date
-// Update the generate function to accept notes and date parameters
-function generate(notes, date) {
-    loadFile(
-        "Shift_Summary_Template.docx",
-        function (content) {
-            try {
-                console.log("Template loaded successfully.");
-
-                const zip = new PizZip(content);
-                const doc = new window.docxtemplater(zip, {
-                    paragraphLoop: true,
-                    linebreaks: true,
-                });
-
-                console.log("Document initialized successfully.");
-
-                // Parse the date string to ensure consistency across devices
-                const formattedDate = new Date(date);
-                const isoDateString = formattedDate.toISOString(); // Format date as ISO 8601
-
-                // Render the document with the provided notes and formatted date
-                doc.render({
-                    shiftDate: "Shift Summary - " + isoDateString, // Use ISO 8601 formatted date
-                    notes: notes.join("\n\n")
-                });
-
-                console.log("Document rendered successfully.");
-
-                // Generate the document blob
-                const blob = doc.getZip().generate({
-                    type: "blob",
-                    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    compression: "DEFLATE",
-                });
-
-                console.log("Document blob generated successfully.");
-
-                // Save the document with the formatted date in the file name
-                const formattedFileName = formattedDate.toLocaleDateString('en-US').replace(/[/\\?%*:|"<>]/g, '-'); // Format date for file name
-                const fileName = `Shift Summary ${formattedFileName}.docx`;
-
-                // Create a temporary anchor element for downloading
-                const downloadLink = document.createElement('a');
-                downloadLink.href = URL.createObjectURL(blob);
-                downloadLink.download = fileName;
-
-                // Trigger download
-                downloadLink.click();
-
-                console.log("Download triggered successfully.");
-            } catch (error) {
-                console.error('Error during document generation:', error);
-            }
-        }
-    );
-}
-
-
-
-    // Function to load the file from the given URL
-    function loadFile(url, callback) {
-        fetch(url) // Fetch the file from the URL
-            .then(response => response.blob()) // Convert the response to a blob
-            .then(blob => {
-                var reader = new FileReader(); // Create a FileReader object
-                reader.onload = function(event) {
-                    var arrayBuffer = event.target.result; // Get the result as an ArrayBuffer
-                    callback(arrayBuffer); // Call the callback function with the ArrayBuffer
-                };
-                reader.readAsArrayBuffer(blob); // Read the blob as an ArrayBuffer
-            })
-            .catch(error => console.error('Error loading file:', error)); // Log any errors during the fetch
-    }
-</script>
+    </script>
 </body>
 </html>
-
